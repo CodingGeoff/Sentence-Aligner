@@ -110,10 +110,10 @@ def main_interface():
                              value=torch.cuda.is_available(),
                              help="需要NVIDIA显卡并安装CUDA驱动")
         
-        if st.button("🔄 清空缓存"):
-            st.cache_resource.clear()
-            st.cache_data.clear()
-            st.success("缓存已重置！")
+        # if st.button("🔄 清空缓存"):
+        #     st.cache_resource.clear()
+        #     st.cache_data.clear()
+        #     st.success("缓存已重置！")
         
         st.markdown("---")
         st.header("📁 文件上传")
