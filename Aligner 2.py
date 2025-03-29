@@ -384,13 +384,13 @@ def main_interface():
         
         st.markdown("---")
         st.header("📁 文件上传")
-        col1, col2 = st.columns(2)
-        with col1:
-            lang_a = st.selectbox("语言A", ["zh", "en", "ja", "eu"], index=0)
-            file_a = st.file_uploader(f"上传{lang_a}文档", type=["txt", "md"], key="a")
-        with col2:
-            lang_b = st.selectbox("语言B", ["en", "zh", "ja", "eu"], index=0)
-            file_b = st.file_uploader(f"上传{lang_b}文档", type=["txt", "md"], key="b")
+        # col1, col2 = st.columns(2)
+        # with col1:
+        lang_a = st.selectbox("语言A", ["zh", "en", "ja", "eu"], index=0)
+        file_a = st.file_uploader(f"上传{lang_a}文档", type=["txt", "md"], key="a")
+        # with col2:
+        lang_b = st.selectbox("语言B", ["en", "zh", "ja", "eu"], index=0)
+        file_b = st.file_uploader(f"上传{lang_b}文档", type=["txt", "md"], key="b")
 
     # 主内容区
     col1, col2 = st.columns([3, 1])
