@@ -517,15 +517,20 @@ def generate_html_content(df, format_type):
         </div>
         """
     else:
+        show_groups = st.checkbox("显示分组编号", value=False, 
+                                help="是否在每对译文前显示'第X组'的编号")
         pairs_html = ""
+        
         for idx, (a, b) in enumerate(st.session_state.aligned):
-            # 转换Markdown为HTML
             a_html = markdown.markdown(a)
             b_html = markdown.markdown(b)
+            
+            group_header = f'<h4>第{idx+1}组</h4>' if show_groups else ""
+            
             pairs_html += f"""
             <div class="pair-item">
                 <div class="lang-col">
-                    <h4>第{idx+1}组</h4>
+                    {group_header}
                     <div class="lang-a">{a_html}</div>
                 </div>
                 <div class="lang-col">
@@ -533,6 +538,7 @@ def generate_html_content(df, format_type):
                 </div>
             </div>
             """
+            
         content = f"""
         <div class="alignment-container">
             <h2 style="color: #2c3e50; text-align: center;">多语言对照结果</h2>
@@ -541,6 +547,34 @@ def generate_html_content(df, format_type):
         """
     
     return f"<html><head>{css_style}</head><body>{content}</body></html>"
+    # else:
+    #     pairs_html = ""
+        
+    #     for idx, (a, b) in enumerate(st.session_state.aligned):
+    #         # 转换Markdown为HTML
+    #         a_html = markdown.markdown(a)
+    #         b_html = markdown.markdown(b)
+            
+    #         col = f'<h4>第{idx+1}组</h4>'
+    #         pairs_html += f"""
+    #         <div class="pair-item">
+    #             <div class="lang-col">
+    #                 {col}
+    #                 <div class="lang-a">{a_html}</div>
+    #             </div>
+    #             <div class="lang-col">
+    #                 <div class="lang-b">{b_html}</div>
+    #             </div>
+    #         </div>
+    #         """
+    #     content = f"""
+    #     <div class="alignment-container">
+    #         <h2 style="color: #2c3e50; text-align: center;">多语言对照结果</h2>
+    #         {pairs_html}
+    #     </div>
+    #     """
+    
+    # return f"<html><head>{css_style}</head><body>{content}</body></html>"
 
 def export_options():
     """导出选项组件"""
