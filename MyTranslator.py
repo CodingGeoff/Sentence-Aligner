@@ -3,8 +3,8 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import torch
+import os
 from datetime import datetime
-from io import BytesIO
 from transformers import (
     MBartForConditionalGeneration,
     MBart50TokenizerFast,
@@ -16,6 +16,9 @@ MODEL_NAME = "facebook/mbart-large-50-many-to-many-mmt"
 HISTORY_DB = "translation_history.db"
 ITEMS_PER_PAGE = 10
 DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# 设置国内镜像源（可选）
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'  # 使用Hugging Face镜像
 
 # ==================== 国际化文本 ====================
 TRANSLATIONS = {
@@ -114,7 +117,7 @@ def load_translation_model():
             framework="pt"
         )
     except Exception as e:
-        st.error(f"Model load failed: {str(e)}")
+        st.error(f"{tr('translation_failed')}: {str(e)}")
         st.stop()
 
 # ==================== 界面组件 ====================
@@ -196,7 +199,6 @@ def main():
     # 侧边栏设置
     with st.sidebar:
         st.session_state.lang = st.selectbox("Language/语言", ["zh", "en"])
-        st.subheader(tr("model_source"))
         st.markdown("---")
         
         # 模板下载
@@ -306,7 +308,6 @@ def main():
                 page += 1
     else:
         st.info(tr("no_history"))
-
 
 if __name__ == '__main__':
     from streamlit.web import cli as stcli
