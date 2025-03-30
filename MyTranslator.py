@@ -126,7 +126,6 @@ def setup_page():
         page_title="Lingmo Translator",
         page_icon="🌐",
         layout="wide",
-        theme="light",
         initial_sidebar_state="expanded"
     )
     
