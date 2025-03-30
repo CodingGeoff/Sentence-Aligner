@@ -113,7 +113,7 @@ def load_translation_model():
             "translation",
             model=model,
             tokenizer=tokenizer,
-            device=0 if DEFAULT_DEVICE == "cuda" else -1,
+            # device=0 if DEFAULT_DEVICE == "cuda" else -1,
             framework="pt"
         )
     except Exception as e:
