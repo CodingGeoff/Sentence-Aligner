@@ -5,7 +5,6 @@ import pandas as pd
 import torch
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from transformers import (
     MBartForConditionalGeneration,
     MBart50TokenizerFast,
@@ -32,11 +31,20 @@ TRANSLATIONS = {
         "export_btn": "📤 Export History",
         "import_btn": "📥 Import History",
         "template_btn": "📋 Download Template",
+        "template_download_help": "Download CSV template for import",
         "literary_mode": "Literary Optimization",
         "gpu_toggle": "GPU Acceleration",
         "page_info": "Page {current} of {total}",
         "prev_page": "Previous",
         "next_page": "Next",
+        "import_success": "Successfully imported",
+        "records": "records",
+        "import_failed": "Import failed",
+        "download_btn": "Download CSV",
+        "translating": "Translating...",
+        "translation_failed": "Translation failed",
+        "input_warning": "Please input text to translate",
+        "no_history": "No translation history"
     },
     "zh": {
         "title": "🌍 凌墨智能翻译引擎",
@@ -50,11 +58,20 @@ TRANSLATIONS = {
         "export_btn": "📤 导出历史",
         "import_btn": "📥 导入历史",
         "template_btn": "📋 下载模板",
+        "template_download_help": "下载导入用CSV模板",
         "literary_mode": "文学优化模式",
         "gpu_toggle": "GPU加速",
         "page_info": "第 {current} 页 / 共 {total} 页",
         "prev_page": "上一页",
         "next_page": "下一页",
+        "import_success": "成功导入",
+        "records": "条记录",
+        "import_failed": "导入失败",
+        "download_btn": "下载CSV文件",
+        "translating": "正在翻译...",
+        "translation_failed": "翻译失败",
+        "input_warning": "请输入要翻译的内容",
+        "no_history": "暂无翻译历史"
     }
 }
 
@@ -99,7 +116,7 @@ def load_translation_model():
             framework="pt"
         )
     except Exception as e:
-        st.error(f"{tr('model_load_failed')}: {str(e)}")
+        st.error(f"Model load failed: {str(e)}")
         st.stop()
 
 # ==================== 界面组件 ====================
@@ -113,7 +130,10 @@ def setup_page():
     
     st.markdown(f"""
     <style>
-    .main {{ background: linear-gradient(135deg, #f8f9fa, #e9ecef); }}
+    .main {{ 
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 2rem;
+    }}
     .stTextArea textarea {{ 
         border: 2px solid #4CAF50 !important;
         border-radius: 15px;
@@ -140,6 +160,10 @@ def setup_page():
         padding: 1.5rem;
         margin: 1rem 0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }}
+    .history-card:hover {{
+        transform: translateY(-3px);
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -176,9 +200,6 @@ def main():
         st.session_state.lang = st.selectbox("Language/语言", ["zh", "en"])
         st.subheader(tr("model_source"))
         st.markdown("---")
-        
-        # 历史管理
-        st.subheader(tr("history_title"))
         
         # 模板下载
         template = pd.DataFrame(columns=[
@@ -233,15 +254,13 @@ def main():
                         input_text, 
                         src_lang=src.split("_")[0],
                         tgt_lang=tgt.split("_")[0],
-                        max_length=512 if literary_mode else 256,
+                        max_length=51200 if literary_mode else 25600,
                         num_beams=5 if literary_mode else 3
                     )
                     translated = result[0]['translation_text']
                     
-                    # 保存记录
                     save_to_db(conn, input_text, translated, src, tgt)
                     
-                    # 显示结果
                     st.subheader(tr("result_title"))
                     st.markdown(f"""
                     <div class="history-card">
@@ -289,6 +308,7 @@ def main():
                 page += 1
     else:
         st.info(tr("no_history"))
+
 
 if __name__ == '__main__':
     from streamlit.web import cli as stcli
