@@ -17,8 +17,8 @@ HISTORY_DB = "translation_history.db"
 ITEMS_PER_PAGE = 10
 DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# 设置国内镜像源（可选）
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'  # 使用Hugging Face镜像
+# 设置国内镜像源
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 # ==================== 国际化文本 ====================
 TRANSLATIONS = {
@@ -77,27 +77,33 @@ TRANSLATIONS = {
 }
 
 # ==================== 数据库操作 ====================
-@st.cache_resource
-def init_db():
-    conn = sqlite3.connect(HISTORY_DB)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS translations
-                (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 timestamp DATETIME,
-                 source_text TEXT,
-                 translated_text TEXT,
-                 src_lang TEXT,
-                 tgt_lang TEXT)''')
-    conn.commit()
-    return conn
-
-def save_to_db(conn, source_text, translated_text, src_lang, tgt_lang):
-    c = conn.cursor()
-    c.execute('''INSERT INTO translations 
-                (timestamp, source_text, translated_text, src_lang, tgt_lang)
-                VALUES (?,?,?,?,?)''',
-             (datetime.now(), source_text, translated_text, src_lang, tgt_lang))
-    conn.commit()
+class DatabaseManager:
+    _instance = None
+    
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._instance.init_db()
+        return cls._instance
+    
+    def init_db(self):
+        self.conn = sqlite3.connect(
+            HISTORY_DB, 
+            check_same_thread=False,  # 允许跨线程访问
+            detect_types=sqlite3.PARSE_DECLTYPES
+        )
+        c = self.conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS translations
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     timestamp DATETIME,
+                     source_text TEXT,
+                     translated_text TEXT,
+                     src_lang TEXT,
+                     tgt_lang TEXT)''')
+        self.conn.commit()
+    
+    def get_conn(self):
+        return self.conn
 
 # ==================== 核心功能 ====================
 @st.cache_resource(show_spinner=False)
@@ -190,7 +196,8 @@ def tr(key):
 
 def main():
     setup_page()
-    conn = init_db()
+    db = DatabaseManager()
+    conn = db.get_conn()
     
     # 初始化语言设置
     if "lang" not in st.session_state:
@@ -217,21 +224,26 @@ def main():
         if uploaded_file:
             try:
                 df = pd.read_csv(uploaded_file)
-                df.to_sql('translations', conn, if_exists='append', index=False)
+                with conn:
+                    df.to_sql('translations', conn, if_exists='append', index=False)
                 st.success(f"{tr('import_success')} {len(df)} {tr('records')}")
             except Exception as e:
                 st.error(f"{tr('import_failed')}: {str(e)}")
         
         # 数据导出
         if st.button(tr("export_btn")):
-            df = pd.read_sql("SELECT * FROM translations", conn)
-            csv = df.to_csv(index=False).encode()
-            st.download_button(
-                label=tr("download_btn"),
-                data=csv,
-                file_name="translation_history.csv",
-                mime="text/csv"
-            )
+            try:
+                with conn:
+                    df = pd.read_sql("SELECT * FROM translations", conn)
+                csv = df.to_csv(index=False).encode()
+                st.download_button(
+                    label=tr("download_btn"),
+                    data=csv,
+                    file_name="translation_history.csv",
+                    mime="text/csv"
+                )
+            except Exception as e:
+                st.error(f"Export failed: {str(e)}")
         
         # 性能设置
         st.markdown("---")
@@ -254,12 +266,13 @@ def main():
                         input_text, 
                         src_lang=src.split("_")[0],
                         tgt_lang=tgt.split("_")[0],
-                        max_length=51200 if literary_mode else 25600,
+                        max_length=5120000 if literary_mode else 2560000,
                         num_beams=5 if literary_mode else 3
                     )
                     translated = result[0]['translation_text']
                     
-                    save_to_db(conn, input_text, translated, src, tgt)
+                    with conn:
+                        save_to_db(conn, input_text, translated, src, tgt)
                     
                     st.subheader(tr("result_title"))
                     st.markdown(f"""
@@ -275,39 +288,45 @@ def main():
     # 历史记录分页
     st.subheader(tr("history_title"))
     page = st.number_input("Page", min_value=1, value=1)
-    total_pages = (pd.read_sql("SELECT COUNT(*) FROM translations", conn).iloc[0,0] + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
     
-    history = pd.read_sql(f"""
-        SELECT * FROM translations 
-        ORDER BY timestamp DESC 
-        LIMIT {ITEMS_PER_PAGE} OFFSET {(page-1)*ITEMS_PER_PAGE}
-    """, conn)
-    
-    if not history.empty:
-        for _, row in history.iterrows():
-            with st.container():
-                st.markdown(f"""
-                <div class="history-card">
-                <small>{row['timestamp']}</small>
-                <h6>{row['src_lang']} → {row['tgt_lang']}</h6>
-                <blockquote>{row['source_text']}</blockquote>
-                <div style="color:#4CAF50;margin-top:1rem;">{row['translated_text']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # 分页导航
-        cols = st.columns([2,3,2])
-        with cols[1]:
-            st.markdown(f"<center>{tr('page_info').format(current=page, total=total_pages)}</center>", 
-                      unsafe_allow_html=True)
-        with cols[0]:
-            if page > 1 and st.button(tr("prev_page")):
-                page -= 1
-        with cols[2]:
-            if page < total_pages and st.button(tr("next_page")):
-                page += 1
-    else:
-        st.info(tr("no_history"))
+    try:
+        with conn:
+            total = pd.read_sql("SELECT COUNT(*) FROM translations", conn).iloc[0,0]
+            total_pages = (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+            
+            history = pd.read_sql(f"""
+                SELECT * FROM translations 
+                ORDER BY timestamp DESC 
+                LIMIT {ITEMS_PER_PAGE} OFFSET {(page-1)*ITEMS_PER_PAGE}
+            """, conn)
+            
+        if not history.empty:
+            for _, row in history.iterrows():
+                with st.container():
+                    st.markdown(f"""
+                    <div class="history-card">
+                    <small>{row['timestamp']}</small>
+                    <h6>{row['src_lang']} → {row['tgt_lang']}</h6>
+                    <blockquote>{row['source_text']}</blockquote>
+                    <div style="color:#4CAF50;margin-top:1rem;">{row['translated_text']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # 分页导航
+            cols = st.columns([2,3,2])
+            with cols[1]:
+                st.markdown(f"<center>{tr('page_info').format(current=page, total=total_pages)}</center>", 
+                          unsafe_allow_html=True)
+            with cols[0]:
+                if page > 1 and st.button(tr("prev_page")):
+                    page -= 1
+            with cols[2]:
+                if page < total_pages and st.button(tr("next_page")):
+                    page += 1
+        else:
+            st.info(tr("no_history"))
+    except Exception as e:
+        st.error(f"Database error: {str(e)}")
 
 if __name__ == '__main__':
     from streamlit.web import cli as stcli
