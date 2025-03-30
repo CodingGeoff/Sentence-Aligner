@@ -21,7 +21,6 @@ DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TRANSLATIONS = {
     "en": {
         "title": "🌍 Lingmo Translation Engine",
-        "model_source": "Model Source: Hugging Face Hub",
         "input_placeholder": "Enter text to translate...",
         "src_lang": "Source Language",
         "tgt_lang": "Target Language",
@@ -48,7 +47,6 @@ TRANSLATIONS = {
     },
     "zh": {
         "title": "🌍 凌墨智能翻译引擎",
-        "model_source": "模型来源：Hugging Face 模型库",
         "input_placeholder": "输入需要翻译的内容...",
         "src_lang": "源语言",
         "tgt_lang": "目标语言",
