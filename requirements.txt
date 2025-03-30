@@ -63,3 +63,5 @@ markdown>=3.4
 python-dotenv>=0.21
 sqlalchemy>=2.0.0
 accelerate>=1.5.2
+tiktoken 
+sentencepiece
