@@ -45,7 +45,7 @@ pip install -r requirements.txt
 3. 启动应用
 
 ```bash
-streamlit run app.py
+streamlit run Aligner.py
 ```
 
 ### 使用指南
